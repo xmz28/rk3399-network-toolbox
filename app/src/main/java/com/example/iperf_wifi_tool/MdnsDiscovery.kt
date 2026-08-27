@@ -4,26 +4,31 @@ import android.content.Context
 import android.net.nsd.NsdManager
 import android.net.nsd.NsdServiceInfo
 import android.net.wifi.WifiManager
+import android.os.Handler
+import android.os.Looper
 import java.util.ArrayDeque
 
 data class IperfService(val name: String, val host: String, val port: Int)
 
 class MdnsDiscovery(
-    context: Context,
+    private val context: Context,
     private val onServicesChanged: (List<IperfService>) -> Unit,
     private val onStatusChanged: (String) -> Unit,
 ) {
     companion object {
         const val SERVICE_TYPE = "_iperf3._tcp."
+        const val DEFAULT_HOST_NAME = "a.local"
     }
 
     private val nsd = context.getSystemService(Context.NSD_SERVICE) as NsdManager
     private val wifi = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
+    private val main = Handler(Looper.getMainLooper())
     private var multicastLock: WifiManager.MulticastLock? = null
     private val services = linkedMapOf<String, IperfService>()
     private val resolveQueue = ArrayDeque<NsdServiceInfo>()
     private var resolving = false
     private var started = false
+    @Volatile private var generation = 0
 
     private val discoveryListener = object : NsdManager.DiscoveryListener {
         override fun onDiscoveryStarted(serviceType: String) = onStatusChanged("正在查找 RK3399…")
@@ -91,6 +96,8 @@ class MdnsDiscovery(
         if (started) return
         started = true
         services.clear()
+        val currentGeneration = ++generation
+        resolveDefaultHost(currentGeneration)
         multicastLock = wifi.createMulticastLock("iperf-mdns").apply {
             setReferenceCounted(false)
             acquire()
@@ -103,12 +110,32 @@ class MdnsDiscovery(
         }
     }
 
+    private fun resolveDefaultHost(currentGeneration: Int) {
+        onStatusChanged("正在解析 $DEFAULT_HOST_NAME…")
+        Thread({
+            try {
+                val address = MdnsHostResolver.resolve(context, DEFAULT_HOST_NAME)
+                if (!address.isNullOrBlank() && started && generation == currentGeneration) {
+                    main.post {
+                        services[DEFAULT_HOST_NAME] = IperfService(DEFAULT_HOST_NAME, address, 5201)
+                        publish()
+                    }
+                }
+            } catch (_: Exception) {
+                if (started && generation == currentGeneration) {
+                    main.post { onStatusChanged("$DEFAULT_HOST_NAME 暂未解析，继续浏览 iperf3 服务") }
+                }
+            }
+        }, "rk3399-mdns-host-resolver").start()
+    }
+
     fun refresh() {
         stop()
         start()
     }
 
     fun stop() {
+        generation++
         if (started) {
             try { nsd.stopServiceDiscovery(discoveryListener) } catch (_: Exception) {}
         }
