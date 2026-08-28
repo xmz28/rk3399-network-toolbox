@@ -379,6 +379,13 @@ private fun openService(context: Context, host: String, service: RkService) {
         })
         return
     }
+    if (service == RkService.SAMBA || service == RkService.FTP || service == RkService.SFTP) {
+        context.startActivity(Intent(context, RemoteFilesActivity::class.java).apply {
+            putExtra(RemoteFilesActivity.EXTRA_HOST, host)
+            putExtra(RemoteFilesActivity.EXTRA_SERVICE, service.name)
+        })
+        return
+    }
     val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
     try {
         context.startActivity(intent)

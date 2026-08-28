@@ -35,4 +35,11 @@ class IperfCommandTest {
         assertTrue(query.toList().windowed(encodedName.size).any { it == encodedName.toList() })
         assertEquals(listOf(0, 1, 128, 1), query.takeLast(4).map { it.toInt() and 0xff })
     }
+
+    @Test fun remotePathsCannotEscapeRoot() {
+        assertEquals("/video/demo.mp4", joinRemote("/video", "demo.mp4"))
+        assertEquals("/", parentPath("/"))
+        assertEquals("/video", parentPath("/video/sub"))
+        assertEquals("/safe", normalizePath("/../../safe"))
+    }
 }

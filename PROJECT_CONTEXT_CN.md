@@ -11,17 +11,17 @@
 1. 自动找到 RK3399，避免反复手输 IP。
 2. 集成 iperf3 TCP/UDP 压测。
 3. 检测并访问 RK3399 上的 Samba、HTTP、FTP、SFTP 和 OpenSpeedTest。
-4. 后续在 App 内完成文件浏览、上传、下载、删除及协议读写测速。
+4. 在 App 内完成 Samba、FTP、SFTP 文件浏览、上传、下载和删除。
 
 ## 2. RK3399 默认地址和端口
 
 | 服务 | 地址或端口 | 当前客户端能力 |
 | --- | ---: | --- |
 | 主机名 | `a.local` | 自动解析并优先选择 |
-| Samba | `445` | TCP 连通检测、客户端地址入口 |
+| Samba | `445` | SMB2/SMB3 内置文件客户端 |
 | HTTP | `3923` | HTTP 握手、内置 WebView 打开 |
-| FTP | `12345` | `220` banner 验证、客户端地址入口 |
-| SFTP | `1234` | SSH banner 验证、客户端地址入口 |
+| FTP | `12345` | FTP 内置文件客户端、被动模式传输 |
+| SFTP | `1234` | SFTP 内置文件客户端 |
 | OpenSpeedTest | `3000` | HTTP 握手、内置 WebView 打开 |
 | iperf3 | `5201` | 内置 iperf3 客户端完整压测 |
 
@@ -54,6 +54,8 @@
 | `MdnsHostResolver.kt` | Android/系统/mDNS 多级主机名解析 |
 | `ServiceTools.kt` | 六项服务端口与协议握手检测 |
 | `WebClientActivity.kt` | HTTP 和 OpenSpeedTest 内置页面 |
+| `RemoteFilesActivity.kt` | Samba/FTP/SFTP 登录、目录和文件操作界面 |
+| `RemoteFileClients.kt` | SMB2/3、FTP、SFTP 协议连接与流式传输实现 |
 | `IperfRunner.kt` | 启动、停止并解析内置 iperf3 输出 |
 | `IperfCommand.kt` | iperf3 参数构造与输出解析 |
 
@@ -80,7 +82,10 @@ APK 内含 iPerf 3.21 的 `arm64-v8a`、`armeabi-v7a`、`x86`、`x86_64` 二进�
 - OpenSpeedTest 3000 返回 HTTP 200，并能在内置页面正常显示。
 - iperf3 5201 TCP 可连接。
 - 内置 iPerf 3.21 已在 Android 真机执行。
-- `testDebugUnitTest`、`assembleDebug`、`lintDebug` 通过；Lint 为 0 errors。
+- Samba 使用 `NAS` 共享完成目录读取、上传、下载内容校验和删除闭环。
+- FTP 使用 `/storage/emulated/0/NAS` 完成目录读取、上传、下载内容校验和删除闭环。
+- SFTP 使用 `/storage/emulated/0/NAS` 完成目录读取、上传、下载内容校验和删除闭环。
+- `testDebugUnitTest`、`assembleDebug` 和 `lintDebug` 已通过；Lint 为 0 errors，保留若干非阻断 warning。
 
 注意：SFTP 服务端 banner 当前为
 `SSH-2.0-${POM.ARTIFACTID}-${POM.VERSION}`，说明服务端构建变量未替换，但不影响 SSH
@@ -102,9 +107,9 @@ APK：
 app/build/outputs/apk/debug/app-debug.apk
 ```
 
-## 8. 下一阶段：内置文件操作
+## 8. 内置文件操作
 
-当前基线提交之后实施以下能力：
+当前版本已经实现：
 
 1. Samba/FTP/SFTP 原生登录和目录浏览。
 2. 使用 Android 系统文件选择器选择本地文件并上传。
@@ -113,6 +118,14 @@ app/build/outputs/apk/debug/app-debug.apk
 5. 上传/下载进度、瞬时或平均速度、耗时及明确错误信息。
 6. 默认参数可预填，但账号、密码、共享名和路径必须可修改。
 7. 文件操作与测速共用同一套协议连接层，不把 TCP 端口在线当成文件传输成功。
+
+当前 RK3399 测试配置使用用户名 `admin`，Samba 共享名为 `NAS`。密码、端口、共享名、
+域和远端路径都能在页面中修改。Samba 默认路径是共享根目录 `/`；FTP/SFTP 默认路径是
+`/storage/emulated/0/NAS`，避免普通文件操作误入 Android 系统根目录。
+
+SFTP 页面会明确提示实验环境当前接受首次连接的主机密钥。Android 系统自带的裁剪版
+Bouncy Castle Provider 不满足 SSHJ 算法需求，客户端会在建立 SFTP 会话前装入 APK
+随带的新版 Provider。
 
 ## 9. 接手注意事项
 

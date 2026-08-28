@@ -16,8 +16,8 @@ android {
         // Bundled iperf3 3.21 Android binaries are built for API 28+.
         minSdk = 28
         targetSdk = 36
-        versionCode = 2
-        versionName = "1.1"
+        versionCode = 3
+        versionName = "1.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -50,6 +50,10 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation("commons-net:commons-net:3.13.0")
+    implementation("com.hierynomus:sshj:0.40.0")
+    implementation("com.hierynomus:smbj:0.13.0")
+    implementation("org.bouncycastle:bcprov-jdk18on:1.80.2")
     testImplementation(libs.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
