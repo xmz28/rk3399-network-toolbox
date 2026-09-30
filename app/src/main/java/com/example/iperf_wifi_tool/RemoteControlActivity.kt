@@ -110,7 +110,7 @@ private fun RemoteControlScreen(initialHost: String, activity: RemoteControlActi
     var scanning by remember { mutableStateOf(false) }
     var selectedWifi by remember { mutableStateOf<String?>(null) }
     var staPassword by remember { mutableStateOf("") }
-    var pendingUsbMode by remember { mutableStateOf<String?>(null) }
+    var pendingUsbPreset by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
 
     fun refresh() {
@@ -306,20 +306,18 @@ private fun RemoteControlScreen(initialHost: String, activity: RemoteControlActi
                 }, enabled = !busy) { Text("应用网口配置") }
                 Text("切换网口角色可能使当前连接立即中断。", style = MaterialTheme.typography.bodySmall)
                 }
-                if (page == "连接") RemotePanel("USB 端口角色") {
-                Text("Type-C · fe800000 · 固件 ${s.optString("usbCDeviceTree")} · 当前 ${s.optString("usbCMode")}（此固件不可运行时切换）")
+                if (page == "连接") RemotePanel("USB 启动预设") {
+                Text("Type-C · fe800000 · 设备树 ${s.optString("usbCDeviceTree")} · 当前 ${s.optString("usbCMode")}")
                 Text("USB3 Type-A · fe900000 · 固件 ${s.optString("usbADeviceTree")} · 当前 ${s.optString("usbAMode")}")
                 Text("Gadget ${s.optString("usbGadgetState")} · 外设 ${s.optInt("usbAAttached")} 个", style = MaterialTheme.typography.bodySmall)
-                val usbCableConnected = s.optString("usbAMode") != "host" && s.optString("usbGadgetState") !in setOf("", "—", "not attached")
-                val usbCanSwitch = !busy && s.optBoolean("usbASwitchable") && !usbCableConnected && s.optInt("usbAAttached") == 0
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf("host" to "Host", "peripheral" to "Device", "otg" to "OTG").forEach { (mode, label) ->
-                        OutlinedButton(onClick = { pendingUsbMode = mode }, enabled = usbCanSwitch && s.optString("usbAMode") != mode) { Text(label) }
-                    }
+                Text("当前 ${s.optString("usbPresetActive")} · 下次启动 ${s.optString("usbPresetNext")}", color = MaterialTheme.colorScheme.primary)
+                OutlinedButton(onClick = { pendingUsbPreset = "A" }, enabled = !busy && s.optString("usbPresetNext") != "A") {
+                    Text("A · Type-C Host / Type-A OTG")
                 }
-                Text("先拔下电脑数据线或安全卸载 USB 外设，再刷新状态；切换可能断开 ADB，重启恢复默认角色。", style = MaterialTheme.typography.bodySmall)
-                if (usbCableConnected) Text("电脑数据线仍连接，暂不能切换。", color = MaterialTheme.colorScheme.error)
-                if (s.optInt("usbAAttached") > 0) Text("Type-A 上仍有外设，暂不能切换。", color = MaterialTheme.colorScheme.error)
+                OutlinedButton(onClick = { pendingUsbPreset = "B" }, enabled = !busy && s.optString("usbPresetNext") != "B") {
+                    Text("B · Type-C OTG / Type-A Host")
+                }
+                Text("写入已校验的启动镜像，下次重启生效；当前是否插线不影响选择。重启后 USB ADB 端口会改变。", style = MaterialTheme.typography.bodySmall)
                 }
                 if (page == "日志") RemotePanel("日志") {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf("system", "nas", "wifi", "controller").forEach { type ->
@@ -358,14 +356,14 @@ private fun RemoteControlScreen(initialHost: String, activity: RemoteControlActi
                     }, enabled = staPassword.length in 8..63) { Text("连接") } },
                     dismissButton = { TextButton(onClick = { selectedWifi = null }) { Text("取消") } })
             }
-            pendingUsbMode?.let { mode ->
-                AlertDialog(onDismissRequest = { pendingUsbMode = null }, title = { Text("确认切换 USB3 Type-A？") },
-                    text = { Text("目标模式：$mode。操作只在本次运行有效，可能中断 USB ADB。请确认电脑数据线和外设均已拔下。") },
+            pendingUsbPreset?.let { mode ->
+                AlertDialog(onDismissRequest = { pendingUsbPreset = null }, title = { Text("写入 USB 启动预设 $mode？") },
+                    text = { Text("将校验并写入 RK3399 的 resource 与 boot 启动分区。当前连接不变，下次重启后生效；请保留完整固件以备恢复。") },
                     confirmButton = { Button(onClick = {
-                        pendingUsbMode = null
-                        perform("usb", JSONObject().put("port", "type_a").put("mode", mode))
-                    }) { Text("确认切换") } },
-                    dismissButton = { TextButton(onClick = { pendingUsbMode = null }) { Text("取消") } })
+                        pendingUsbPreset = null
+                        perform("usb-preset", JSONObject().put("mode", mode).put("confirm", "APPLY_USB_PRESET"))
+                    }) { Text("确认写入") } },
+                    dismissButton = { TextButton(onClick = { pendingUsbPreset = null }) { Text("取消") } })
             }
         }
     }

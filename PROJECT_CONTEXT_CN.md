@@ -13,7 +13,8 @@
 3. 检测并访问 RK3399 上的 Samba、HTTP、FTP、SFTP 和 OpenSpeedTest。
 4. 在 App 内完成 Samba、FTP、SFTP 文件浏览、上传、下载和删除。
 5. 密码验证后远程管理 RK3399 服务、Wi-Fi 和网口，并查看状态与日志。
-6. 查看 USB 角色；在 RK3399 固件允许时临时切换 USB3 Type-A 的 Host/Device/OTG。
+6. 查看 USB 角色；选择 Type-C Host / Type-A OTG（A）或 Type-C OTG / Type-A Host（B）
+   启动预设，下次重启生效。
 
 ## 2. RK3399 默认地址和端口
 
@@ -86,9 +87,10 @@ HTTP、FTP、Samba 使用新密码可登录，之后已恢复 `admin`；SFTP 共
 FTPd 密码配置，但本轮未独立登录。远程页按概览、服务、Wi-Fi、连接、日志分区，
 参考 `bleconnect` 的浅色渐变与卡片风格，信道按 2.4/5 GHz 分组展示。
 手机端选择扫描结果并让 RK3399 接入加密热点的完整流程尚待已知热点密码验证。
-USB 控制页会显示 Type-C 与 USB3 Type-A 的设备树/当前模式。当前 RK3399 固件只
-允许 Type-A 运行时切换；有电脑数据线或外设连接时禁止操作。角色切换会中断
-USB ADB，重启后恢复固件默认；尚未拔线验证实际 Host/Device 重新枚举。
+USB 控制页显示 Type-C、Type-A 当前角色与下一次启动的 A/B 预设。预设会写入
+板上已备份且已校验的启动镜像，不要求拔掉当前线缆，也不会立即重启。A/B 的
+设备树与 Gadget 控制器切换已在这台无 NPU 的板上重启验证；刷机仍有断电风险，
+镜像仅适用于当前板和固件，详见 `rk3399_control/USB_PRESETS_CN.md`。
 
 测试手机：Redmi K30 5G，Android 13（API 33）。目标设备：AIO RK3399。
 
