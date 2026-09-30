@@ -59,7 +59,7 @@
 | `WebClientActivity.kt` | HTTP 和 OpenSpeedTest 内置页面 |
 | `RemoteFilesActivity.kt` | Samba/FTP/SFTP 登录、目录和文件操作界面 |
 | `RemoteFileClients.kt` | SMB2/3、FTP、SFTP 协议连接与流式传输实现 |
-| `RemoteControlActivity.kt` | 密码登录、远程服务/热点/网口控制及日志 |
+| `RemoteControlActivity.kt` | 分区式远程控制、NAS 共用改密、STA 扫描与连接、日志 |
 | `IperfRunner.kt` | 启动、停止并解析内置 iperf3 输出 |
 | `IperfCommand.kt` | iperf3 参数构造与输出解析 |
 
@@ -81,7 +81,11 @@ APK 内含 iPerf 3.21 的 `arm64-v8a`、`armeabi-v7a`、`x86`、`x86_64` 二进�
 切换当前使用的 AP 或网口后，连接可能立即中断，需要重新连入并刷新状态。
 当前远程页面已通过 `assembleDebug`，RK3399 实机接口完成密码拒绝、状态读取、
 FTP 开关与端口操作验证；Redmi K30 5G 实机已显示远程 USB 状态和带线禁用态。
-Wi-Fi AP/STA 切换流程、NAS 密码同步及完整手机端交互仍待下一轮验证。
+板上已通过有线 API 完成 AP→STA、STA 扫描、STA→AP 操作。NAS 共用改密实测
+HTTP、FTP、Samba 使用新密码可登录，之后已恢复 `admin`；SFTP 共用 Primitive
+FTPd 密码配置，但本轮未独立登录。远程页按概览、服务、Wi-Fi、连接、日志分区，
+参考 `bleconnect` 的浅色渐变与卡片风格，信道按 2.4/5 GHz 分组展示。
+手机端选择扫描结果并让 RK3399 接入加密热点的完整流程尚待已知热点密码验证。
 USB 控制页会显示 Type-C 与 USB3 Type-A 的设备树/当前模式。当前 RK3399 固件只
 允许 Type-A 运行时切换；有电脑数据线或外设连接时禁止操作。角色切换会中断
 USB ADB，重启后恢复固件默认；尚未拔线验证实际 Host/Device 重新枚举。

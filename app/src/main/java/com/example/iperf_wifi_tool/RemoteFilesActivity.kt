@@ -62,7 +62,7 @@ private fun RemoteFilesScreen(initialService: RkService, initialHost: String, on
     var host by remember { mutableStateOf(initialHost) }
     var portText by remember { mutableStateOf(initialService.port.toString()) }
     var username by remember { mutableStateOf("admin") }
-    var password by remember { mutableStateOf("admin") }
+    var password by remember { mutableStateOf(context.getSharedPreferences("remote_files", android.content.Context.MODE_PRIVATE).getString("nas_password", "admin") ?: "admin") }
     var share by remember { mutableStateOf("NAS") }
     var domain by remember { mutableStateOf("") }
     var path by remember {
