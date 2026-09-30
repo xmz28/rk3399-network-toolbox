@@ -12,6 +12,8 @@
 2. 集成 iperf3 TCP/UDP 压测。
 3. 检测并访问 RK3399 上的 Samba、HTTP、FTP、SFTP 和 OpenSpeedTest。
 4. 在 App 内完成 Samba、FTP、SFTP 文件浏览、上传、下载和删除。
+5. 密码验证后远程管理 RK3399 服务、Wi-Fi 和网口，并查看状态与日志。
+6. 查看 USB 角色；在 RK3399 固件允许时临时切换 USB3 Type-A 的 Host/Device/OTG。
 
 ## 2. RK3399 默认地址和端口
 
@@ -24,6 +26,7 @@
 | SFTP | `1234` | SFTP 内置文件客户端 |
 | OpenSpeedTest | `3000` | HTTP 握手、内置 WebView 打开 |
 | iperf3 | `5201` | 内置 iperf3 客户端完整压测 |
+| 远程控制 | `8765` | 密码验证后读写控制接口 |
 
 测试环境中 `a.local` 解析为 `192.168.31.1`，实际地址以现场 mDNS 结果为准。
 
@@ -56,6 +59,7 @@
 | `WebClientActivity.kt` | HTTP 和 OpenSpeedTest 内置页面 |
 | `RemoteFilesActivity.kt` | Samba/FTP/SFTP 登录、目录和文件操作界面 |
 | `RemoteFileClients.kt` | SMB2/3、FTP、SFTP 协议连接与流式传输实现 |
+| `RemoteControlActivity.kt` | 密码登录、远程服务/热点/网口控制及日志 |
 | `IperfRunner.kt` | 启动、停止并解析内置 iperf3 输出 |
 | `IperfCommand.kt` | iperf3 参数构造与输出解析 |
 
@@ -71,6 +75,16 @@
 APK 内含 iPerf 3.21 的 `arm64-v8a`、`armeabi-v7a`、`x86`、`x86_64` 二进制。
 
 ## 6. 已验证结果
+
+远程控制默认账号/密码均为 `admin`；手机可记住密码，私有偏好数据不参加 Android
+自动备份。控制接口使用局域网 HTTP Basic，不能暴露到公网；远程 root 终端未开放。
+切换当前使用的 AP 或网口后，连接可能立即中断，需要重新连入并刷新状态。
+当前远程页面已通过 `assembleDebug`，RK3399 实机接口完成密码拒绝、状态读取、
+FTP 开关与端口操作验证；Redmi K30 5G 实机已显示远程 USB 状态和带线禁用态。
+Wi-Fi AP/STA 切换流程、NAS 密码同步及完整手机端交互仍待下一轮验证。
+USB 控制页会显示 Type-C 与 USB3 Type-A 的设备树/当前模式。当前 RK3399 固件只
+允许 Type-A 运行时切换；有电脑数据线或外设连接时禁止操作。角色切换会中断
+USB ADB，重启后恢复固件默认；尚未拔线验证实际 Host/Device 重新枚举。
 
 测试手机：Redmi K30 5G，Android 13（API 33）。目标设备：AIO RK3399。
 

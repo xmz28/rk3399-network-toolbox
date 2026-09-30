@@ -62,7 +62,7 @@ private fun RemoteFilesScreen(initialService: RkService, initialHost: String, on
     var host by remember { mutableStateOf(initialHost) }
     var portText by remember { mutableStateOf(initialService.port.toString()) }
     var username by remember { mutableStateOf("admin") }
-    var password by remember { mutableStateOf("20020918Z") }
+    var password by remember { mutableStateOf("admin") }
     var share by remember { mutableStateOf("NAS") }
     var domain by remember { mutableStateOf("") }
     var path by remember {

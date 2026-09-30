@@ -194,6 +194,13 @@ private fun IperfScreen() {
                 )
             }
 
+            SectionCard("远程控制") {
+                Text("在局域网中用密码管理 RK3399 的服务、热点和网口。")
+                Button(onClick = {
+                    context.startActivity(Intent(context, RemoteControlActivity::class.java).putExtra(RemoteControlActivity.EXTRA_HOST, host.ifBlank { "a.local" }))
+                }) { Text("打开控制台") }
+            }
+
             SectionCard("压测参数") {
                 SelectorRow("协议", listOf("TCP", "UDP"), if (protocol == TestProtocol.TCP) 0 else 1, !result.running) {
                     protocol = if (it == 0) TestProtocol.TCP else TestProtocol.UDP

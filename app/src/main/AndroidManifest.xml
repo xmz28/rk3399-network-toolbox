@@ -8,7 +8,7 @@
     <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
 
     <application
-        android:allowBackup="true"
+        android:allowBackup="false"
         android:usesCleartextTraffic="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
@@ -17,6 +17,7 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.Iperf_wifi_tool">
+        <activity android:name=".RemoteControlActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
         <activity
             android:name=".WebClientActivity"
             android:exported="false" />
