@@ -241,6 +241,7 @@ private fun RemoteControlScreen(initialHost: String, activity: RemoteControlActi
                 }
                 if (page == "Wi-Fi") RemotePanel("模式与热点") {
                 Text("当前 ${s.optString("wifiMode")} · ${s.optString("ssid")} · ${s.optString("wlanIp")}", color = Color(0xFF72798A))
+                if (s.optString("wifiMode") == "AP") Text("热点 DHCP：${if (s.optBoolean("wifiDhcpRunning")) "运行中" else "未运行，手机可能无法获取 IP"}", color = if (s.optBoolean("wifiDhcpRunning")) Color(0xFF377B65) else MaterialTheme.colorScheme.error)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     FilterChip(s.optString("wifiMode") == "AP", { perform("wifi", JSONObject().put("mode", "ap")) }, enabled = !busy, label = { Text("热点 AP") })
                     FilterChip(s.optString("wifiMode") == "STA", {
