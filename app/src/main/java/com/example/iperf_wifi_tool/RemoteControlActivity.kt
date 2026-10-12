@@ -55,7 +55,8 @@ private class ControlApi(private val host: String, private val password: String)
         val connection = (URL("http://$host:8765/api/v1/$path").openConnection() as HttpURLConnection)
         try {
             connection.connectTimeout = 5000
-            connection.readTimeout = 65000
+            connection.readTimeout = if (path == "storage") 270000 else 65000
+            if (path == "storage") connection.setRequestProperty("X-Storage-Request", "1")
             connection.setRequestProperty("Authorization", "Basic " + Base64.encodeToString("admin:$password".toByteArray(), Base64.NO_WRAP))
             connection.setRequestProperty("Accept", "application/json")
             if (body != null) {
@@ -187,7 +188,7 @@ private fun RemoteControlScreen(initialHost: String, activity: RemoteControlActi
             if (authenticated && snapshot != null) {
                 val s = snapshot!!
                 Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf("概览", "服务", "Wi-Fi", "连接", "日志").forEach { name ->
+                    listOf("概览", "服务", "存储", "Wi-Fi", "连接", "日志").forEach { name ->
                         FilterChip(page == name, { page = name }, label = { Text(name) })
                     }
                 }
@@ -197,6 +198,9 @@ private fun RemoteControlScreen(initialHost: String, activity: RemoteControlActi
                 Text("Wi-Fi ${s.optString("wifiMode")} · ${s.optString("ssid")} · ${s.optString("wlanIp")} · ${s.optString("wifiBand")} CH ${s.optString("channel")}")
                 OutlinedButton(onClick = ::refresh, enabled = !busy) { Text("刷新状态") }
                 }
+                if (page == "存储") StorageManagement(
+                    load = { withContext(Dispatchers.IO) { ControlApi(host.trim(), password).request("storage") } },
+                    perform = { body -> withContext(Dispatchers.IO) { ControlApi(host.trim(), password).request("storage", body) } })
                 if (page == "服务") RemotePanel("NAS 与测试服务") {
                 val services = s.optJSONArray("services")
                 if (services != null) for (i in 0 until services.length()) {
