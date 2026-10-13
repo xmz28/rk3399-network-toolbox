@@ -188,12 +188,13 @@ private fun RemoteControlScreen(initialHost: String, activity: RemoteControlActi
             if (authenticated && snapshot != null) {
                 val s = snapshot!!
                 Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf("概览", "服务", "存储", "Wi-Fi", "连接", "日志").forEach { name ->
+                    listOf("概览", "服务", "存储", "路由", "Wi-Fi", "连接", "日志").forEach { name ->
                         FilterChip(page == name, { page = name }, label = { Text(name) })
                     }
                 }
                 if (page == "概览") RemotePanel("设备状态") {
                 Text("${s.optString("model")} · Android ${s.optString("android")}", color = Color(0xFF72798A))
+                if (s.optBoolean("routerEnabled")) Text("路由上行 ${s.optString("routerWan").ifBlank { "无" }} · LAN ${s.optString("lanIp")}")
                 Text("有线 ${s.optString("ethRole")} · ${s.optString("ethIp")} · ${s.optString("ethMode")}")
                 Text("Wi-Fi ${s.optString("wifiMode")} · ${s.optString("ssid")} · ${s.optString("wlanIp")} · ${s.optString("wifiBand")} CH ${s.optString("channel")}")
                 OutlinedButton(onClick = ::refresh, enabled = !busy) { Text("刷新状态") }
@@ -201,6 +202,11 @@ private fun RemoteControlScreen(initialHost: String, activity: RemoteControlActi
                 if (page == "存储") StorageManagement(
                     load = { withContext(Dispatchers.IO) { ControlApi(host.trim(), password).request("storage") } },
                     perform = { body -> withContext(Dispatchers.IO) { ControlApi(host.trim(), password).request("storage", body) } })
+                if (page == "路由") RemotePanel("接口与路由") {
+                    RouterManagement(
+                        load = { withContext(Dispatchers.IO) { ControlApi(host.trim(), password).request("network") } },
+                        perform = { path, body -> withContext(Dispatchers.IO) { ControlApi(host.trim(), password).request(path, body) } })
+                }
                 if (page == "服务") RemotePanel("NAS 与测试服务") {
                 val services = s.optJSONArray("services")
                 if (services != null) for (i in 0 until services.length()) {
@@ -252,7 +258,9 @@ private fun RemoteControlScreen(initialHost: String, activity: RemoteControlActi
                         perform("wifi", JSONObject().put("mode", "sta"), onSuccess = { scanWifi() })
                     }, enabled = !busy, label = { Text("连接 Wi‑Fi (STA)") })
                 }
-                if (s.optString("wifiMode") == "STA") {
+                OutlinedButton(onClick = { perform("wifi", JSONObject().put("mode", "apsta")) }, enabled = !busy && s.optString("wifiMode") == "STA") { Text("实验：STA + AP 同时开启") }
+                Text("并发需先启用路由并连接上游 WiFi；AP 实际频段/信道跟随上游，尚未验证所有组合。", style = MaterialTheme.typography.bodySmall)
+                if (s.optString("wifiMode") != "AP") {
                     OutlinedButton(onClick = ::scanWifi, enabled = !scanning && !busy) { Text(if (scanning) "扫描中…" else "重新扫描附近网络") }
                     val found = networks
                     if (found != null) {
@@ -289,6 +297,9 @@ private fun RemoteControlScreen(initialHost: String, activity: RemoteControlActi
                 Text("切换 AP/STA 或修改热点会断开当前 Wi-Fi；DFS 52–64 只限屏蔽箱测试。", style = MaterialTheme.typography.bodySmall)
                 }
                 if (page == "连接") RemotePanel("网口模式") {
+                if (s.optBoolean("routerEnabled")) {
+                    Text("统一路由已接管网口，请进入“路由”页配置板载/USB 网口。")
+                } else {
                 listOf("auto" to "自动 WAN/LAN", "lan" to "固定 LAN", "wan_dhcp" to "WAN DHCP", "wan_static" to "WAN 静态 IP", "pppoe" to "WAN PPPoE").forEach { (id, label) ->
                     FilterChip(ethMode == id, { ethMode = id }, label = { Text(label) })
                 }
@@ -310,6 +321,7 @@ private fun RemoteControlScreen(initialHost: String, activity: RemoteControlActi
                         .put("pppoeUser", pppoeUser).put("pppoePassword", pppoePassword))
                 }, enabled = !busy) { Text("应用网口配置") }
                 Text("切换网口角色可能使当前连接立即中断。", style = MaterialTheme.typography.bodySmall)
+                }
                 }
                 if (page == "连接") RemotePanel("USB 启动预设") {
                 Text("Type-C · fe800000 · 设备树 ${s.optString("usbCDeviceTree")} · 当前 ${s.optString("usbCMode")}")

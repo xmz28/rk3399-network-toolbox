@@ -87,7 +87,7 @@ class MdnsDiscovery(
         val sorted = services.values.sortedWith(
             compareByDescending<IperfService> { it.name.contains("rk3399", ignoreCase = true) }
                 .thenBy { it.name }
-        )
+        ).distinctBy { it.host to it.port }
         onServicesChanged(sorted)
         onStatusChanged(if (sorted.isEmpty()) "未发现服务" else "发现 ${sorted.size} 台服务")
     }
