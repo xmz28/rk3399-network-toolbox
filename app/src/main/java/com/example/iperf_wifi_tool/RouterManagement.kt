@@ -8,6 +8,7 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.json.JSONObject
+import org.json.JSONArray
 
 @Composable
 fun RouterManagement(load: suspend () -> JSONObject, perform: suspend (String, JSONObject) -> JSONObject) {
@@ -15,8 +16,11 @@ fun RouterManagement(load: suspend () -> JSONObject, perform: suspend (String, J
     var loaded by remember { mutableStateOf(false) }
     var enabled by remember { mutableStateOf(true) }
     var uplink by remember { mutableStateOf("auto") }
-    var eth0 by remember { mutableStateOf("auto") }
-    var eth1 by remember { mutableStateOf("auto") }
+    var members by remember { mutableStateOf(setOf<String>()) }
+    var wanMenu by remember { mutableStateOf(false) }
+    var lanMenu by remember { mutableStateOf(false) }
+    var emptyWarning by remember { mutableStateOf(false) }
+    var safetyRollback by remember { mutableStateOf(true) }
     var wait by remember { mutableStateOf("20") }
     var ip by remember { mutableStateOf("192.168.31.1") }
     var busy by remember { mutableStateOf(false) }
@@ -37,12 +41,14 @@ fun RouterManagement(load: suspend () -> JSONObject, perform: suspend (String, J
             state = load()
             if (!loaded) {
                 enabled = state.optString("enabled") != "0"
-                uplink = state.optString("uplink").ifBlank { "auto" }
-                eth0 = state.optString("eth0Mode").ifBlank { "auto" }
-                eth1 = state.optString("eth1Mode").ifBlank { "auto" }
+                uplink = state.optString("uplink").let { if (it.isBlank() || it == "auto") state.optString("activeWan").ifBlank { "none" } else it }
+                members = if (state.optString("interfaceMode") == "explicit") state.optString("lanMembers").split(' ').filter { it.isNotBlank() }.toSet()
+                else listOf("eth0", "eth1").filter { it != uplink && (state.optString("$it.role") == "lan" || state.optString("${it}Mode") == "lan" || state.optString("uplink") == "none") }.toSet() +
+                    if (state.optString("wifiOperation") in setOf("1", "2")) setOf("ap") else emptySet()
                 wait = state.optString("wait").ifBlank { "20" }
                 ip = state.optString("lanIp").ifBlank { "192.168.31.1" }
                 preset = state.optString("preset").ifBlank { if (state.optString("enabled").isBlank()) "board" else "custom" }
+                safetyRollback = state.optString("rollbackPolicy") != "off"
                 loaded = true
             }
         } catch (e: Exception) { message = e.message ?: "网络状态读取失败" }
@@ -52,14 +58,21 @@ fun RouterManagement(load: suspend () -> JSONObject, perform: suspend (String, J
         scope.launch {
             busy = true
             try { message = perform(path, body).optString("output"); delay(2500); refresh() }
-            catch (e: Exception) { message = "${e.message}；若地址改变，请重新连接，未确认配置会自动回滚。" }
+            catch (e: Exception) { message = "${e.message}；请重新连接并检查状态。仅待确认且启用安全回滚的配置会超时恢复。" }
             finally { busy = false }
         }
     }
+    val interfaces = state.optString("interfaces").split(' ').filter { it.isNotBlank() }.distinct()
+    fun label(id: String) = state.optString("$id.label").ifBlank { if (id == "none") "无上行" else id }
+    fun apply() {
+        val body = JSONObject().put("enabled", enabled).put("wait", wait.toIntOrNull() ?: 0).put("lanIp", ip)
+        if (preset == "custom") action("network", body.put("uplink", uplink).put("lanMembers", JSONArray(members.toList())).put("rollbackPolicy", if (safetyRollback) "on" else "off"))
+        else action("network/preset", body.put("preset", preset))
+    }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("最多一个 WAN · 其余桥接 LAN", style = MaterialTheme.typography.titleSmall)
+        Text("最多一个 WAN · LAN 成员自由选择", style = MaterialTheme.typography.titleSmall)
         Text("当前 WAN：${state.optString("activeWan").ifBlank { "无" }} · LAN ${state.optString("lanIp")}")
-        for (iface in listOf("eth0", "eth1")) Text("${if (iface == "eth0") "板载" else "USB"} · ${state.optString("$iface.role")} · ${state.optString("$iface.ip")}\n${state.optString("$iface.mac")}", style = MaterialTheme.typography.bodySmall)
+        for (iface in interfaces.filter { it != "wlan0" && it != "ap" }) Text("${label(iface)} · ${state.optString("$iface.role")} · ${state.optString("$iface.ip")}", style = MaterialTheme.typography.bodySmall)
         Text("DHCP ${if (state.optString("dhcp") == "1") "运行中" else "未运行"} · ${state.optString("message")}", style = MaterialTheme.typography.bodySmall)
         if (state.optString("wifiOperation") == "2") Text("并发 AP ${if (state.optString("concurrentAp") == "1") "已启动" else "未就绪"} · 实际 CH ${state.optString("ap0.channel")}", style = MaterialTheme.typography.bodySmall)
         Box {
@@ -71,32 +84,41 @@ fun RouterManagement(load: suspend () -> JSONObject, perform: suspend (String, J
                 DropdownMenuItem(text = { Text("高级自定义") }, onClick = { preset = "custom"; advanced = true; menu = false })
             }
         }
-        Text(presets.firstOrNull { it.first == preset }?.third ?: "保留现有逐接口配置与无线模式", style = MaterialTheme.typography.bodySmall)
+        Text(presets.firstOrNull { it.first == preset }?.third ?: "WAN 单选 · br-lan 成员多选 · 未选接口不参与路由", style = MaterialTheme.typography.bodySmall)
         if (preset == "wireless") Text("请先在 WiFi 页面连接上游；并发热点跟随 STA 信道，仍为实验功能。", style = MaterialTheme.typography.bodySmall)
         Text("上游接 WAN，下游接 LAN。仅 LAN/离线 NAS 不要接已有路由器 LAN。", style = MaterialTheme.typography.bodySmall)
         TextButton(onClick = { advanced = !advanced }) { Text(if (advanced) "收起高级设置" else "高级设置") }
         if (advanced) {
         Row { Switch(enabled, { enabled = it }, enabled = !busy); Text("启用统一路由管理", Modifier.padding(top = 12.dp)) }
         if (preset == "custom") {
-        listOf("auto" to "自动", "eth0" to "板载 WAN", "eth1" to "USB WAN", "wlan0" to "WiFi WWAN", "none" to "全 LAN").chunked(3).forEach { row ->
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { row.forEach { (id, title) ->
-                FilterChip(uplink == id, { uplink = id }, label = { Text(title) }, enabled = !busy)
-            } }
+        Box {
+            OutlinedButton(onClick = { wanMenu = true }, enabled = !busy) { Text("WAN：${label(uplink)} ▾") }
+            DropdownMenu(wanMenu, { wanMenu = false }) {
+                (listOf("none") + interfaces.filter { it != "ap" }).forEach { id ->
+                    DropdownMenuItem(text = { Text(label(id)) }, onClick = { uplink = id; members = members - id; wanMenu = false })
+                }
+            }
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            FilterChip(eth0 == "lan", { eth0 = if (eth0 == "lan") "auto" else "lan" }, label = { Text("板载仅 LAN") }, enabled = !busy)
-            FilterChip(eth1 == "lan", { eth1 = if (eth1 == "lan") "auto" else "lan" }, label = { Text("USB 仅 LAN") }, enabled = !busy)
+        Box {
+            OutlinedButton(onClick = { lanMenu = true }, enabled = !busy) { Text("LAN（br-lan）：${if (members.isEmpty()) "无成员" else members.joinToString()} ▾") }
+            DropdownMenu(lanMenu, { lanMenu = false }) {
+                (interfaces + members).distinct().filter { it != "wlan0" && it != uplink }.forEach { id ->
+                    DropdownMenuItem(text = { Text(label(id)) }, leadingIcon = { Checkbox(id in members, null) },
+                        onClick = { members = if (id in members) members - id else members + id })
+                }
+                DropdownMenuItem(text = { Text("完成") }, onClick = { lanMenu = false })
+            }
         }
+        Text("WiFi STA 作 WAN 前需先连接上游；无线模式仍在 WiFi 页设置。空 LAN 或取消 AP 可能断开手机。", style = MaterialTheme.typography.bodySmall)
+        Row { Switch(safetyRollback, { safetyRollback = it }, enabled = !busy); Text("安全回滚（120 秒确认）", Modifier.padding(top = 12.dp)) }
+        Text(if (safetyRollback) "高级配置应用后需确认，超时恢复。" else "已关闭：配置直接保留，断连后不会自动恢复。", style = MaterialTheme.typography.bodySmall)
         }
         OutlinedTextField(wait, { wait = it.filter(Char::isDigit).take(3) }, Modifier.fillMaxWidth(), label = { Text("自动检测秒数 3–120") }, singleLine = true)
         OutlinedTextField(ip, { ip = it }, Modifier.fillMaxWidth(), label = { Text("LAN 地址（192.168.x.1–99 /24）") }, singleLine = true)
         }
         val pending = state.optString("pendingUntil").isNotBlank()
-        Button(onClick = {
-            val body = JSONObject().put("enabled", enabled).put("wait", wait.toIntOrNull() ?: 0).put("lanIp", ip)
-            if (preset == "custom") action("network", body.put("uplink", uplink).put("eth0Mode", eth0).put("eth1Mode", eth1))
-            else action("network/preset", body.put("preset", preset))
-        }, enabled = !busy && loaded && !pending) { Text("应用场景（需确认）") }
+        Text("预设按风险判断：AP、LAN 地址和无线模式不变时无需确认。", style = MaterialTheme.typography.bodySmall)
+        Button(onClick = { if (preset == "custom" && (!safetyRollback || members.isEmpty() || "ap" !in members)) emptyWarning = true else apply() }, enabled = !busy && loaded && !pending) { Text("应用配置") }
         if (pending) {
             Text("待确认：切换后请连接新地址，120 秒内确认，否则回滚。", color = MaterialTheme.colorScheme.error)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -109,4 +131,8 @@ fun RouterManagement(load: suspend () -> JSONObject, perform: suspend (String, J
         if (message.isNotBlank()) Text(message, style = MaterialTheme.typography.bodySmall)
         Text("上游使用 WAN 地址、下游使用 LAN 地址访问 RK3399；WAN 侧仅允许直连私网访问管理/NAS，不开放 WAN→LAN 主动连接。", style = MaterialTheme.typography.bodySmall)
     }
+    if (emptyWarning) AlertDialog(onDismissRequest = { emptyWarning = false }, title = { Text("可能断开控制连接") },
+        text = { Text(if (!safetyRollback) "安全回滚已关闭，配置将直接保留。若 LAN 地址、接口或热点不可用，需通过其他网口、本机或 ADB 恢复。" else "LAN 无成员或未包含热点 AP。应用后可能需要从 WAN 地址重新连接；120 秒内未确认会回滚。") },
+        confirmButton = { TextButton(onClick = { emptyWarning = false; apply() }) { Text("仍然应用") } },
+        dismissButton = { TextButton(onClick = { emptyWarning = false }) { Text("取消") } })
 }
