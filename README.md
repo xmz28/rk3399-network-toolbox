@@ -4,6 +4,10 @@
 
 手机端 App 名为 **RK3399 网络工具箱**，最低 Android 9（API 28），无需手机 root。
 
+## 下载 APK
+
+[下载 1.2 Debug 预览版](https://github.com/xmz28/rk3399-network-toolbox/releases/tag/v1.2-debug-20261015)：在 Release 的 Assets 中选择 `.apk`，安装到 Android 9 及以上手机。发布页附中文安装说明和 SHA-256；这是调试签名的 Pre-release。同签名可覆盖安装，不同签名不能直接覆盖；远程管理需配套新版 RK3399 Control。
+
 ## 功能
 
 - 自动解析 a.local，并发现 iperf3 DNS-SD 服务；支持手动 IP
@@ -67,7 +71,7 @@ PowerShell：
 - 保留现有局域网 HTTP Basic 控制协议和默认账号，便于配套开发。
 - App 已禁用云备份，保存密码的两份配置另明确排除出设备迁移；普通覆盖安装仍保留本机数据。
 - 当前 SFTP 接受任意服务器主机密钥，尚未实现指纹确认或固定。只连接自己信任的局域网设备。
-- 2026-10-15 同步热点密码交互与中文说明，离线 `:app:assembleDebug --no-daemon --offline` 构建通过；未重新安装手机或执行实机回归，不提供签名密钥或发布 APK。
+- 2026-10-15 同步热点密码交互与中文说明，离线 `:app:assembleDebug --no-daemon --offline` 构建通过；未重新安装手机或执行实机回归。源码仓库不包含签名密钥或 APK，预览安装包通过 Release 下载。
 - 历史实测记录不代表本次重新执行所有设备验证，详见中文说明和 [安全说明](SECURITY.md)。
 
 ## 致谢与许可
