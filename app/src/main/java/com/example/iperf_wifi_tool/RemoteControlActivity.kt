@@ -19,6 +19,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.ui.unit.dp
 import com.example.iperf_wifi_tool.ui.theme.Iperf_wifi_toolTheme
@@ -91,6 +92,8 @@ private fun RemoteControlScreen(initialHost: String, activity: RemoteControlActi
     var logText by remember { mutableStateOf("") }
     var apSsid by remember { mutableStateOf("") }
     var apPassword by remember { mutableStateOf("") }
+    var apPasswordEdited by remember { mutableStateOf(false) }
+    var showApPassword by remember { mutableStateOf(true) }
     var band by remember { mutableStateOf("2g") }
     var channel by remember { mutableStateOf("1") }
     var ethMode by remember { mutableStateOf("auto") }
@@ -113,6 +116,20 @@ private fun RemoteControlScreen(initialHost: String, activity: RemoteControlActi
     var staPassword by remember { mutableStateOf("") }
     var pendingUsbPreset by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
+
+    LaunchedEffect(page, authenticated, host) {
+        if (!authenticated) {
+            apPassword = ""
+            apPasswordEdited = false
+        } else if (page == "Wi-Fi" && !apPasswordEdited) {
+            val requestedHost = host.trim()
+            try {
+                val response = withContext(Dispatchers.IO) { ControlApi(requestedHost, password).request("wifi/ap-password") }
+                if (authenticated && host.trim() == requestedHost && !apPasswordEdited) apPassword = response.getString("password")
+            } catch (e: kotlinx.coroutines.CancellationException) { throw e }
+            catch (_: Exception) { status = "热点旧密码读取失败，可手动输入新密码；旧版板端需更新。" }
+        }
+    }
 
     fun refresh() {
         if (busy) return
@@ -281,7 +298,9 @@ private fun RemoteControlScreen(initialHost: String, activity: RemoteControlActi
                 }
                 if (page == "Wi-Fi") RemotePanel("热点配置") {
                 OutlinedTextField(apSsid, { apSsid = it }, Modifier.fillMaxWidth(), label = { Text("热点 SSID") }, singleLine = true)
-                OutlinedTextField(apPassword, { apPassword = it }, Modifier.fillMaxWidth(), label = { Text("新热点密码（8–63 位）") }, singleLine = true, visualTransformation = PasswordVisualTransformation())
+                OutlinedTextField(apPassword, { apPassword = it; apPasswordEdited = true }, Modifier.fillMaxWidth(), label = { Text("热点密码（8–63 位）") }, singleLine = true,
+                    visualTransformation = if (showApPassword) VisualTransformation.None else PasswordVisualTransformation(),
+                    trailingIcon = { TextButton(onClick = { showApPassword = !showApPassword }) { Text(if (showApPassword) "隐藏" else "显示") } })
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     FilterChip(band == "2g", { band = "2g"; channel = "1" }, label = { Text("2.4 GHz") })
                     FilterChip(band == "5g", { band = "5g"; channel = "36" }, label = { Text("5 GHz") })
